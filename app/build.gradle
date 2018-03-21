@@ -1,0 +1,97 @@
+import com.android.manifmerger.ManifestMerger2
+import com.android.manifmerger.MergingReport
+import com.android.manifmerger.XmlDocument
+import com.android.utils.ILogger
+
+apply plugin: 'com.android.application'
+
+def logger =new ILogger(){
+
+    @Override
+    void error(Throwable throwable, String s, Object... objects) {
+
+    }
+
+    @Override
+    void warning(String s, Object... objects) {
+
+    }
+
+    @Override
+    void info(String s, Object... objects) {
+
+    }
+
+    @Override
+    void verbose(String s, Object... objects) {
+
+    }
+}
+def mainAndroidManifestFile = "src/main/AndroidManifest.xml"
+def manifestDirs = []
+def mergeManifest = { dirs ->
+    File mainManifestFile = new File("$projectDir/" + mainAndroidManifestFile);
+
+    ManifestMerger2.MergeType mergeType = ManifestMerger2.MergeType.APPLICATION
+    XmlDocument.Type documentType = XmlDocument.Type.MAIN
+    ManifestMerger2.Invoker invoker = new ManifestMerger2.Invoker(mainManifestFile, logger, mergeType, documentType);
+
+    dirs.each() {
+        File manifestFile = new File("$projectDir/" + it)
+        if (manifestFile.exists()) {
+            invoker.addLibraryManifest(manifestFile)
+        }
+    }
+    def mergingReport = invoker.merge()
+    def moduleAndroidManifest = mergingReport.getMergedDocument(MergingReport.MergedManifestKind.MERGED)
+
+    def generateAndroidManifest = "$buildDir/AndroidManifest.xml"
+    new File("$buildDir").mkdirs()
+    def file = new File(generateAndroidManifest)
+    file.createNewFile()
+    file.write(moduleAndroidManifest)
+    android.sourceSets.main.manifest.srcFile generateAndroidManifest
+}
+
+android {
+    compileSdkVersion 26
+    defaultConfig {
+        applicationId "com.xmq.pindemo"
+        minSdkVersion 19
+        targetSdkVersion 26
+        versionCode 1
+        versionName "1.0"
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+    sourceSets {
+        main {
+            def dirs = ['p_test1', 'p_test2']
+            dirs.each { dir ->
+                java.srcDir("src/$dir/main/java")
+                res.srcDir("src/$dir/main/res")
+                manifestDirs << "src/$dir/main/AndroidManifest.xml"
+            }
+            mergeManifest(manifestDirs)
+        }
+    }
+}
+
+clean.doLast {
+    mergeManifest(manifestDirs)
+}
+
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation 'com.android.support:appcompat-v7:26.1.0'
+    implementation 'com.android.support.constraint:constraint-layout:1.0.2'
+    testImplementation 'junit:junit:4.12'
+    androidTestImplementation 'com.android.support.test:runner:1.0.1'
+    androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.1'
+}
